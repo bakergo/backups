@@ -23,7 +23,6 @@ little bit lacking, since there's nobody to code review.
 import argparse
 import datetime
 import subprocess
-# import boto
 import logging
 import os
 import sys
@@ -86,7 +85,6 @@ class Snapshot(object):
         super(Snapshot, self).__init__()
         self.filesystem = filesystem
         self.timestamp = timestamp()
-        # self.name = '%s@%d' % (self.filesystem, self.timestamp)
         self.name = '%s@%s' % (self.filesystem, 'duplicity')
 
     def Exists(self):
@@ -103,9 +101,7 @@ class Snapshot(object):
         _Exec('zfs', 'destroy', self.name)
 
     def rebase(self, root, path):
-        return os.path.join(root, '.zfs', 'snapshot',
-                'duplicity', path)
-                # str(self.timestamp), path)
+        return os.path.join(root, '.zfs', 'snapshot', 'duplicity', path)
 
 def TimeFormat(years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0):
     '''Returns a relative time format as specified in the duplicity'''
