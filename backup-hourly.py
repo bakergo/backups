@@ -65,6 +65,18 @@ class Duplicity(object):
         ''' calls duplciity verify on the thing '''
         pass
 
+    def Recover(self):
+        '''Calls duplicity recover'''
+        cmd = ['/usr/local/bin/duplicity',
+                'restore',
+                '--use-agent',
+                '--encrypt-key', self.enc_key,
+                '--sign-key', self.sign_key]
+        if self.dryrun:
+            cmd += ['--dry-run']
+        cmd += [self.url, self.path]
+        _Exec(*cmd)
+
     def Backup(self):
         '''Calls duplicity backup'''
         cmd = ['/usr/local/bin/duplicity',
@@ -120,11 +132,13 @@ def ParseArguments(config):
             default=config['filesystem'],
             help="ZFS filesystem to take a snapshot of")
     parser.add_argument('--root', type=str, help="Path to back up", default=config['root'])
+    parser.add_argument('--path', type=str, help="Path to restore to", default=config['restore_path'])
     parser.add_argument('--s3url', type=str, help="S3 URL to upload to", default=config['s3url'])
     parser.add_argument('-c', '--config', type=str, help="Configuration file")
     parser.add_argument('-d', '--dryrun', type=str, help="Dry run")
     parser.add_argument('-e', '--encryption_key_id', type=str, help="Do stuff", default=config['encrypt_key_id'])
     parser.add_argument('-s', '--signing_key_id', type=str, help="Do stuff", default=config['sign_key_id'])
+    parser.add_argument('-r', '--recover', help="restore from backup", action="store_true", default=False)
     return parser.parse_args()
 
 def Backup(opts, config):
@@ -139,6 +153,14 @@ def Backup(opts, config):
                 opts.signing_key_id)
         duplicity.Backup()
 
+def Recover(opts, config):
+    ''' Perform a recovery from the backup to the current directory '''
+    duplicity = Duplicity(config['s3url'], DEBUG,
+            opts.path,
+            opts.encryption_key_id,
+            opts.signing_key_id)
+    duplicity.Recover()
+
 def main():
     if os.geteuid() != 0:
         sys.stderr.write("Requires a uid of r00t\n")
@@ -146,7 +168,10 @@ def main():
     config = {}
     execfile(CONFIG_FILE, config)
     args = ParseArguments(config)
-    Backup(args, config)
+    if args.recover:
+        Recover(args, config)
+    else:
+        Backup(args, config)
 
 if __name__ == '__main__':
     main()
