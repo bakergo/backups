@@ -41,7 +41,7 @@ def _Exec(*args):
     '''
     print ' '.join(args)
     proc = subprocess.Popen(args, stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT)
+                            stderr=subprocess.STDOUT)
     line = proc.stdout.readline()
     while line:
         print line,
@@ -50,11 +50,13 @@ def _Exec(*args):
         raise IOError("Process crashed. Might want to take a look at that.")
 
 def timestamp():
-    ''' Returns teht imesamp in seconds '''
-    return int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
+    ''' Returns the timestamp in seconds '''
+    # you can write java in any language.
+    return int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1))
+               .total_seconds())
 
 class Duplicity(object):
-    def __init__(self,  url, dryrun, path, ekey_id, skey_id):
+    def __init__(self, url, dryrun, path, ekey_id, skey_id):
         self.url = url
         self.dryrun = dryrun
         self.path = path
@@ -62,16 +64,16 @@ class Duplicity(object):
         self.sign_key = skey_id
 
     def Verify(self):
-        ''' calls duplciity verify on the thing '''
+        ''' calls duplicity verify on the thing '''
         pass
 
     def Recover(self):
         '''Calls duplicity recover'''
         cmd = ['/usr/local/bin/duplicity',
-                'restore',
-                '--use-agent',
-                '--encrypt-key', self.enc_key,
-                '--sign-key', self.sign_key]
+               'restore',
+               '--use-agent',
+               '--encrypt-key', self.enc_key,
+               '--sign-key', self.sign_key]
         if self.dryrun:
             cmd += ['--dry-run']
         cmd += [self.url, self.path]
@@ -80,16 +82,32 @@ class Duplicity(object):
     def Backup(self):
         '''Calls duplicity backup'''
         cmd = ['/usr/local/bin/duplicity',
-                '--use-agent',
-                '--full-if-older-than' , TimeFormat(weeks=2),
-                '--exclude', '**/nobackups',
-                '--exclude-if-present', '.nobackups',
-                '--encrypt-key', self.enc_key,
-                '--sign-key', self.sign_key,
-                '--allow-source-mismatch']
+               '--use-agent',
+               '--full-if-older-than', TimeFormat(weeks=2),
+               '--exclude', '**/nobackups',
+               '--exclude-if-present', '.nobackups',
+               '--encrypt-key', self.enc_key,
+               '--sign-key', self.sign_key,
+               '--allow-source-mismatch']
         if self.dryrun:
             cmd += ['--dry-run']
         cmd += [self.path, self.url]
+        _Exec(*cmd)
+
+    def Prune(self):
+        '''Calls duplicity to prune old backups and incremental backups'''
+        cmd = ['/usr/local/bin/duplicity',
+               '--remove-all-inc-of-but-n-full', str(3),
+               '--force']
+        cmd += [self.url]
+        _Exec(*cmd)
+
+    def Cleanup(self):
+        '''Calls duplicity to prune old backups and incremental backups'''
+        cmd = ['/usr/local/bin/duplicity',
+               '--force',
+               '--extra-clean']
+        cmd += [self.url]
         _Exec(*cmd)
 
 class Snapshot(object):
@@ -118,7 +136,7 @@ class Snapshot(object):
 def TimeFormat(years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0):
     '''Returns a relative time format as specified in the duplicity'''
     symbols = ((years, 'Y'), (months, 'M'), (weeks, 'W'), (days, 'D'),
-            (hours, 'h'), (minutes, 'm'), (seconds, 's'))
+               (hours, 'h'), (minutes, 'm'), (seconds, 's'))
     fmt = []
     for symbol in symbols:
         if symbol[0] > 0:
@@ -129,8 +147,8 @@ def ParseArguments(config):
     parser = argparse.ArgumentParser(description='Run by backups, hourly')
     # print config
     parser.add_argument('--filesystem', type=str,
-            default=config['filesystem'],
-            help="ZFS filesystem to take a snapshot of")
+                        default=config['filesystem'],
+                        help="ZFS filesystem to take a snapshot of")
     parser.add_argument('--root', type=str, help="Path to back up", default=config['root'])
     parser.add_argument('--path', type=str, help="Path to restore to", default=config['restore_path'])
     parser.add_argument('--s3url', type=str, help="S3 URL to upload to", default=config['s3url'])
@@ -148,17 +166,19 @@ def Backup(opts, config):
         return
     with snap:
         duplicity = Duplicity(config['s3url'], DEBUG,
-                snap.rebase(opts.root, ''),
-                opts.encryption_key_id,
-                opts.signing_key_id)
+                              snap.rebase(opts.root, ''),
+                              opts.encryption_key_id,
+                              opts.signing_key_id)
         duplicity.Backup()
+        duplicity.Prune()
+        duplicity.Cleanup()
 
 def Recover(opts, config):
     ''' Perform a recovery from the backup to the current directory '''
     duplicity = Duplicity(config['s3url'], DEBUG,
-            opts.path,
-            opts.encryption_key_id,
-            opts.signing_key_id)
+                          opts.path,
+                          opts.encryption_key_id,
+                          opts.signing_key_id)
     duplicity.Recover()
 
 def main():
