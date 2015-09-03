@@ -97,16 +97,15 @@ class Duplicity(object):
     def Prune(self):
         '''Calls duplicity to prune old backups and incremental backups'''
         cmd = ['/usr/local/bin/duplicity',
-               '--remove-all-inc-of-but-n-full', str(3),
+               'remove-all-inc-of-but-n-full', str(3),
                '--force']
         cmd += [self.url]
         _Exec(*cmd)
 
     def Cleanup(self):
         '''Calls duplicity to prune old backups and incremental backups'''
-        cmd = ['/usr/local/bin/duplicity',
-               '--force',
-               '--extra-clean']
+        cmd = ['/usr/local/bin/duplicity', 'cleanup',
+               '--force', '--extra-clean']
         cmd += [self.url]
         _Exec(*cmd)
 
