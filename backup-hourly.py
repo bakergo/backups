@@ -34,9 +34,9 @@ DEBUG = False
 logging.basicConfig(format=FORMAT)
 LOG = logging.getLogger('root')
 
-def _Exec(*args):
+def _exec(*args):
     '''
-    Executes the given command, and pipes all of the output to the standard
+    executes the given command, and pipes all of the output to the standard
     logger
     '''
     print ' '.join(args)
@@ -63,11 +63,11 @@ class Duplicity(object):
         self.enc_key = ekey_id
         self.sign_key = skey_id
 
-    def Verify(self):
+    def verify(self):
         ''' calls duplicity verify on the thing '''
         pass
 
-    def Recover(self):
+    def recover(self):
         '''Calls duplicity recover'''
         cmd = ['/usr/local/bin/duplicity',
                'restore',
@@ -77,13 +77,13 @@ class Duplicity(object):
         if self.dryrun:
             cmd += ['--dry-run']
         cmd += [self.url, self.path]
-        _Exec(*cmd)
+        _exec(*cmd)
 
-    def Backup(self):
+    def backup(self):
         '''Calls duplicity backup'''
         cmd = ['/usr/local/bin/duplicity',
                '--use-agent',
-               '--full-if-older-than', TimeFormat(weeks=2),
+               '--full-if-older-than', time_format(weeks=3),
                '--exclude', '**/nobackups',
                '--exclude-if-present', '.nobackups',
                '--encrypt-key', self.enc_key,
@@ -92,47 +92,57 @@ class Duplicity(object):
         if self.dryrun:
             cmd += ['--dry-run']
         cmd += [self.path, self.url]
-        _Exec(*cmd)
+        _exec(*cmd)
 
-    def Prune(self):
+    def prune(self):
         '''Calls duplicity to prune old backups and incremental backups'''
         cmd = ['/usr/local/bin/duplicity',
                'remove-all-inc-of-but-n-full', str(3),
                '--force']
         cmd += [self.url]
-        _Exec(*cmd)
+        _exec(*cmd)
 
-    def Cleanup(self):
+    def cleanup(self):
         '''Calls duplicity to prune old backups and incremental backups'''
         cmd = ['/usr/local/bin/duplicity', 'cleanup',
+               '--encrypt-key', self.enc_key,
+               '--sign-key', self.sign_key,
                '--force', '--extra-clean']
         cmd += [self.url]
-        _Exec(*cmd)
+        _exec(*cmd)
 
 class Snapshot(object):
+    '''
+    Represents a zfs snapshot. when _enter_ is called, it takes a snapshot of
+    the zfs directory and maintains that file path until __exit__
+    '''
+
     def __init__(self, filesystem):
         super(Snapshot, self).__init__()
         self.filesystem = filesystem
         self.timestamp = timestamp()
         self.name = '%s@%s' % (self.filesystem, 'duplicity')
 
-    def Exists(self):
+    def exists(self):
         ''' Returns true if the snapshot path exists '''
         return os.path.exists(self.name)
 
     def __enter__(self):
         ''' Takes a temporary ZFS snapshot, s I don't have to worry about it.'''
-        _Exec('zfs', 'snapshot', self.name)
+        _exec('zfs', 'snapshot', self.name)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        ''' Removes the ZFS snapshot, so that I don't have to worry about it later. '''
-        _Exec('zfs', 'destroy', self.name)
+        '''
+        Removes the ZFS snapshot, so that I don't have to worry about it later.
+        '''
+        _exec('zfs', 'destroy', self.name)
 
     def rebase(self, root, path):
+        ''' Rewrite the path from the zfs root to the zfs snapshot '''
         return os.path.join(root, '.zfs', 'snapshot', 'duplicity', path)
 
-def TimeFormat(years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0):
+def time_format(years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0):
     '''Returns a relative time format as specified in the duplicity'''
     symbols = ((years, 'Y'), (months, 'M'), (weeks, 'W'), (days, 'D'),
                (hours, 'h'), (minutes, 'm'), (seconds, 's'))
@@ -142,25 +152,34 @@ def TimeFormat(years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0
             fmt.extend((str(x) for x in symbol))
     return ''.join(fmt)
 
-def ParseArguments(config):
+def parse_arguments(config):
+    ''' Parses arguments for the application '''
     parser = argparse.ArgumentParser(description='Run by backups, hourly')
     # print config
     parser.add_argument('--filesystem', type=str,
                         default=config['filesystem'],
                         help="ZFS filesystem to take a snapshot of")
-    parser.add_argument('--root', type=str, help="Path to back up", default=config['root'])
-    parser.add_argument('--path', type=str, help="Path to restore to", default=config['restore_path'])
-    parser.add_argument('--s3url', type=str, help="S3 URL to upload to", default=config['s3url'])
+    parser.add_argument('--root', type=str, help="Path to back up",
+                        default=config['root'])
+    parser.add_argument('--path', type=str, help="Path to restore to",
+                        default=config['restore_path'])
+    parser.add_argument('--s3url', type=str, help="S3 URL to upload to",
+                        default=config['s3url'])
     parser.add_argument('-c', '--config', type=str, help="Configuration file")
     parser.add_argument('-d', '--dryrun', type=str, help="Dry run")
-    parser.add_argument('-e', '--encryption_key_id', type=str, help="Do stuff", default=config['encrypt_key_id'])
-    parser.add_argument('-s', '--signing_key_id', type=str, help="Do stuff", default=config['sign_key_id'])
-    parser.add_argument('-r', '--recover', help="restore from backup", action="store_true", default=False)
+    parser.add_argument('-e', '--encryption_key_id', type=str, help="Do stuff",
+                        default=config['encrypt_key_id'])
+    parser.add_argument('-s', '--signing_key_id', type=str, help="Do stuff",
+                        default=config['sign_key_id'])
+    parser.add_argument('-m', '--command', help="Command to run to back up",
+                        default='backup',
+                        choices=['backup', 'recover', 'cleanup'])
     return parser.parse_args()
 
-def Backup(opts, config):
+def backup(opts, config):
+    ''' Perform a backup of the current zfs snapshot '''
     snap = Snapshot(opts.filesystem)
-    if snap.Exists():
+    if snap.exists():
         print "Snapshot already exists, exiting early"
         return
     with snap:
@@ -168,17 +187,24 @@ def Backup(opts, config):
                               snap.rebase(opts.root, ''),
                               opts.encryption_key_id,
                               opts.signing_key_id)
-        duplicity.Backup()
-        duplicity.Prune()
-        duplicity.Cleanup()
+        duplicity.backup()
+        duplicity.prune()
 
-def Recover(opts, config):
+def recover(opts, config):
     ''' Perform a recovery from the backup to the current directory '''
     duplicity = Duplicity(config['s3url'], DEBUG,
                           opts.path,
                           opts.encryption_key_id,
                           opts.signing_key_id)
-    duplicity.Recover()
+    duplicity.recover()
+
+def cleanup(opts, config):
+    ''' Performs a full cleanup of the backup signature files '''
+    duplicity = Duplicity(config['s3url'], DEBUG,
+                          opts.path,
+                          opts.encryption_key_id,
+                          opts.signing_key_id)
+    duplicity.cleanup()
 
 def main():
     if os.geteuid() != 0:
@@ -186,11 +212,13 @@ def main():
         sys.exit(1)
     config = {}
     execfile(CONFIG_FILE, config)
-    args = ParseArguments(config)
-    if args.recover:
-        Recover(args, config)
+    args = parse_arguments(config)
+    if args.command == 'recover':
+        recover(args, config)
+    elif args.command == 'cleanup':
+        cleanup(args, config)
     else:
-        Backup(args, config)
+        backup(args, config)
 
 if __name__ == '__main__':
     main()
