@@ -83,7 +83,7 @@ class Duplicity(object):
         '''Calls duplicity backup'''
         cmd = ['/usr/local/bin/duplicity',
                '--use-agent',
-               '--full-if-older-than', time_format(weeks=4),
+               '--full-if-older-than', time_format(weeks=8),
                '--exclude', '**/nobackups',
                '--exclude-if-present', '.nobackups',
                '--encrypt-key', self.enc_key,
@@ -97,12 +97,12 @@ class Duplicity(object):
     def prune(self):
         '''Calls duplicity to prune old backups and incremental backups'''
         cmd = ['/usr/local/bin/duplicity',
-               'remove-all-but-n-full', str(7),
+               'remove-all-but-n-full', str(4),
                '--force']
         cmd += [self.url]
         _exec(*cmd)
         cmd = ['/usr/local/bin/duplicity',
-               'remove-all-inc-of-but-n-full', str(3),
+               'remove-all-inc-of-but-n-full', str(2),
                '--force']
         cmd += [self.url]
         _exec(*cmd)
