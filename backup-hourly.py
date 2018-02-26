@@ -56,12 +56,13 @@ def timestamp():
                .total_seconds())
 
 class Duplicity(object):
-    def __init__(self, url, dryrun, path, ekey_id, skey_id):
+    def __init__(self, url, dryrun, path, ekey_id, skey_id, cachefile):
         self.url = url
         self.dryrun = dryrun
         self.path = path
         self.enc_key = ekey_id
         self.sign_key = skey_id
+        self.cachefile = cachefile
 
     def verify(self):
         ''' calls duplicity verify on the thing '''
@@ -72,6 +73,7 @@ class Duplicity(object):
         cmd = ['/usr/local/bin/duplicity',
                'restore',
                '--use-agent',
+               '--archive-dir', self.cachefile,
                '--encrypt-key', self.enc_key,
                '--sign-key', self.sign_key]
         if self.dryrun:
@@ -83,6 +85,7 @@ class Duplicity(object):
         '''Calls duplicity backup'''
         cmd = ['/usr/local/bin/duplicity',
                '--use-agent',
+               '--archive-dir', self.cachefile,
                '--full-if-older-than', time_format(weeks=8),
                '--exclude', '**/nobackups',
                '--exclude-if-present', '.nobackups',
@@ -97,11 +100,13 @@ class Duplicity(object):
     def prune(self):
         '''Calls duplicity to prune old backups and incremental backups'''
         cmd = ['/usr/local/bin/duplicity',
+               '--archive-dir', self.cachefile,
                'remove-all-but-n-full', str(4),
                '--force']
         cmd += [self.url]
         _exec(*cmd)
         cmd = ['/usr/local/bin/duplicity',
+               '--archive-dir', self.cachefile,
                'remove-all-inc-of-but-n-full', str(2),
                '--force']
         cmd += [self.url]
@@ -110,6 +115,7 @@ class Duplicity(object):
     def cleanup(self):
         '''Calls duplicity to prune old backups and incremental backups'''
         cmd = ['/usr/local/bin/duplicity', 'cleanup',
+               '--archive-dir', self.cachefile,
                '--encrypt-key', self.enc_key,
                '--sign-key', self.sign_key,
                '--force', '--extra-clean']
@@ -179,6 +185,8 @@ def parse_arguments(config):
     parser.add_argument('-m', '--command', help="Command to run to back up",
                         default='backup',
                         choices=['backup', 'recover', 'cleanup'])
+    parser.add_argument('--cache', type=str, help="Path to cache folder",
+                        default=config['cachefile'])
     return parser.parse_args()
 
 def backup(opts, config):
@@ -191,7 +199,8 @@ def backup(opts, config):
         duplicity = Duplicity(config['s3url'], DEBUG,
                               snap.rebase(opts.root, ''),
                               opts.encryption_key_id,
-                              opts.signing_key_id)
+                              opts.signing_key_id,
+                              opts.cache)
         duplicity.backup()
         duplicity.prune()
 
@@ -200,7 +209,8 @@ def recover(opts, config):
     duplicity = Duplicity(config['s3url'], DEBUG,
                           opts.path,
                           opts.encryption_key_id,
-                          opts.signing_key_id)
+                          opts.signing_key_id,
+                          opts.cache)
     duplicity.recover()
 
 def cleanup(opts, config):
@@ -208,7 +218,8 @@ def cleanup(opts, config):
     duplicity = Duplicity(config['s3url'], DEBUG,
                           opts.path,
                           opts.encryption_key_id,
-                          opts.signing_key_id)
+                          opts.signing_key_id,
+                          opts.cache)
     duplicity.cleanup()
 
 def main():
