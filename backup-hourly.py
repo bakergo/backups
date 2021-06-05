@@ -27,6 +27,7 @@ import logging
 import os
 import sys
 
+
 CONFIG = {'s3url': None, 'root': None, 'filesystem': None}
 CONFIG_FILE = '/etc/local/backups.conf'
 FORMAT = '%(asctime)-15s : %(levelname)-10s - %(msg)'
@@ -39,12 +40,12 @@ def _exec(*args):
     executes the given command, and pipes all of the output to the standard
     logger
     '''
-    print ' '.join(args)
+    print(' '.join(args))
     proc = subprocess.Popen(args, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT)
     line = proc.stdout.readline()
     while line:
-        print line,
+        print(line)
         line = proc.stdout.readline()
     if proc.wait() != 0:
         raise IOError("Process crashed. Might want to take a look at that.")
@@ -193,7 +194,7 @@ def backup(opts, config):
     ''' Perform a backup of the current zfs snapshot '''
     snap = Snapshot(opts.filesystem)
     if snap.exists():
-        print "Snapshot already exists, exiting early"
+        print("Snapshot already exists, exiting early")
         return
     with snap:
         duplicity = Duplicity(config['s3url'], DEBUG,
@@ -227,7 +228,8 @@ def main():
         sys.stderr.write("Requires a uid of r00t\n")
         sys.exit(1)
     config = {}
-    execfile(CONFIG_FILE, config)
+
+    exec(open(CONFIG_FILE).read(), config)
     args = parse_arguments(config)
     if args.command == 'recover':
         recover(args, config)
