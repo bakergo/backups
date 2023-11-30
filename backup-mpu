@@ -1,0 +1,38 @@
+#!/bin/bash
+
+declare -a excludes=(
+  **/.git
+  **/.hg
+  .cache/go-build
+  .cache/gopls
+  .cache/mozilla
+  .config/discord
+  .local/share/Steam
+  .mozilla
+  Downloads/
+  go/
+  opt/dolphin-emu
+  src/dewdrop/vendor
+  src/github.com
+  src/go
+  ttl
+)
+
+
+BACKUP_ROOT="/home/gregorah"
+BACKUP_DEST="jet:/storage/shared/backup/mpu"
+
+declare -a exclude_fmt=()
+for e in "${excludes[@]}" ; do
+  exclude_fmt+=("--exclude=/$e")
+done
+
+rsync \
+  -slurpt -S \
+  --safe-links \
+  --progress \
+  "${exclude_fmt[@]}" \
+  --filter="dir-merge,n- .nobackups" \
+  "${BACKUP_ROOT}/" \
+  "${BACKUP_DEST}/"
+
