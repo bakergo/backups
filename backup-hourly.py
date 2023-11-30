@@ -57,7 +57,8 @@ def timestamp():
                .total_seconds())
 
 class Duplicity(object):
-    def __init__(self, url, dryrun, path, ekey_id, skey_id, cachefile):
+    def __init__(self, url, dryrun, path, ekey_id, skey_id, cachefile, binary):
+        self.binary = binary
         self.url = url
         self.dryrun = dryrun
         self.path = path
@@ -71,7 +72,7 @@ class Duplicity(object):
 
     def recover(self):
         '''Calls duplicity recover'''
-        cmd = ['/usr/local/bin/duplicity',
+        cmd = [self.binary,
                'restore',
                '--use-agent',
                '--archive-dir', self.cachefile,
@@ -84,10 +85,10 @@ class Duplicity(object):
 
     def backup(self):
         '''Calls duplicity backup'''
-        cmd = ['/usr/local/bin/duplicity',
+        cmd = [self.binary,
                '--use-agent',
                '--archive-dir', self.cachefile,
-               '--full-if-older-than', time_format(weeks=8),
+               '--full-if-older-than', time_format(years=1),
                '--exclude', '**/nobackups',
                '--exclude-if-present', '.nobackups',
                '--encrypt-key', self.enc_key,
@@ -100,13 +101,13 @@ class Duplicity(object):
 
     def prune(self):
         '''Calls duplicity to prune old backups and incremental backups'''
-        cmd = ['/usr/local/bin/duplicity',
+        cmd = [self.binary,
                '--archive-dir', self.cachefile,
                'remove-all-but-n-full', str(4),
                '--force']
         cmd += [self.url]
         _exec(*cmd)
-        cmd = ['/usr/local/bin/duplicity',
+        cmd = [self.binary,
                '--archive-dir', self.cachefile,
                'remove-all-inc-of-but-n-full', str(2),
                '--force']
@@ -115,7 +116,7 @@ class Duplicity(object):
 
     def cleanup(self):
         '''Calls duplicity to prune old backups and incremental backups'''
-        cmd = ['/usr/local/bin/duplicity', 'cleanup',
+        cmd = [self.binary, 'cleanup',
                '--archive-dir', self.cachefile,
                '--encrypt-key', self.enc_key,
                '--sign-key', self.sign_key,
@@ -169,25 +170,25 @@ def parse_arguments(config):
     parser = argparse.ArgumentParser(description='Run by backups, hourly')
     # print config
     parser.add_argument('--filesystem', type=str,
-                        default=config['filesystem'],
+                        default=config['filesystem'].strip(),
                         help="ZFS filesystem to take a snapshot of")
     parser.add_argument('--root', type=str, help="Path to back up",
-                        default=config['root'])
+                        default=config['root'].strip())
     parser.add_argument('--path', type=str, help="Path to restore to",
-                        default=config['restore_path'])
+                        default=config['restore_path'].strip())
     parser.add_argument('--s3url', type=str, help="S3 URL to upload to",
-                        default=config['s3url'])
+                        default=config['s3url'].strip())
     parser.add_argument('-c', '--config', type=str, help="Configuration file")
     parser.add_argument('-d', '--dryrun', type=str, help="Dry run")
     parser.add_argument('-e', '--encryption_key_id', type=str, help="Do stuff",
-                        default=config['encrypt_key_id'])
+                        default=config['encrypt_key_id'].strip())
     parser.add_argument('-s', '--signing_key_id', type=str, help="Do stuff",
-                        default=config['sign_key_id'])
+                        default=config['sign_key_id'].strip())
     parser.add_argument('-m', '--command', help="Command to run to back up",
                         default='backup',
                         choices=['backup', 'recover', 'cleanup'])
     parser.add_argument('--cache', type=str, help="Path to cache folder",
-                        default=config['cachefile'])
+                        default=config['cachefile'].strip())
     return parser.parse_args()
 
 def backup(opts, config):
@@ -201,7 +202,8 @@ def backup(opts, config):
                               snap.rebase(opts.root, ''),
                               opts.encryption_key_id,
                               opts.signing_key_id,
-                              opts.cache)
+                              opts.cache,
+                              binary=config['binary'])
         duplicity.backup()
         duplicity.prune()
 
@@ -211,7 +213,8 @@ def recover(opts, config):
                           opts.path,
                           opts.encryption_key_id,
                           opts.signing_key_id,
-                          opts.cache)
+                          opts.cache,
+                          binary=config['binary'])
     duplicity.recover()
 
 def cleanup(opts, config):
@@ -220,7 +223,8 @@ def cleanup(opts, config):
                           opts.path,
                           opts.encryption_key_id,
                           opts.signing_key_id,
-                          opts.cache)
+                          opts.cache,
+                          binary=config['binary'])
     duplicity.cleanup()
 
 def main():
