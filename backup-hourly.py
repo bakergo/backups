@@ -130,19 +130,23 @@ class Snapshot(object):
     the zfs directory and maintains that file path until __exit__
     '''
 
-    def __init__(self, filesystem):
+    def __init__(self, filesystem, root, create_snapshot):
         super(Snapshot, self).__init__()
         self.filesystem = filesystem
         self.timestamp = timestamp()
         self.name = '%s@%s' % (self.filesystem, 'duplicity')
+        self.root = root
+        self.create_snapshot = create_snapshot
 
     def exists(self):
         ''' Returns true if the snapshot path exists '''
-        return os.path.exists(self.name)
+        return os.path.exists(os.path.join(self.root, '.zfs', 'snapshot', 'duplicity'))
+        # return os.path.exists(self.root)
 
     def __enter__(self):
         ''' Takes a temporary ZFS snapshot, s I don't have to worry about it.'''
-        _exec('zfs', 'snapshot', self.name)
+        if self.create_snapshot:
+            _exec('zfs', 'snapshot', self.name)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -189,14 +193,22 @@ def parse_arguments(config):
                         choices=['backup', 'recover', 'cleanup'])
     parser.add_argument('--cache', type=str, help="Path to cache folder",
                         default=config['cachefile'].strip())
+    parser.add_argument('--create-snapshot', action='store_true', dest='create_snapshot',
+                        help="Create the snapshot before backing up.")
+    parser.add_argument('--nocreate-snapshot', action='store_false', dest='create_snapshot',
+                        help="Don't Create the snapshot before backing up.")
+    parser.set_defaults(create_snapshot=True)
     return parser.parse_args()
 
 def backup(opts, config):
     ''' Perform a backup of the current zfs snapshot '''
-    snap = Snapshot(opts.filesystem)
+    snap = Snapshot(opts.filesystem, opts.root, opts.create_snapshot)
     if snap.exists():
-        print("Snapshot already exists, exiting early")
-        return
+        if opts.create_snapshot:
+            print("Snapshot already exists, exiting early")
+            return
+        else:
+            print("Snapshot already exists. continuing.")
     with snap:
         duplicity = Duplicity(config['s3url'], DEBUG,
                               snap.rebase(opts.root, ''),
