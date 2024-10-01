@@ -88,7 +88,7 @@ class Duplicity(object):
         cmd = [self.binary,
                '--use-agent',
                '--archive-dir', self.cachefile,
-               '--full-if-older-than', time_format(years=1),
+               '--full-if-older-than', time_format(weeks=14),
                '--exclude', '**/nobackups',
                '--exclude-if-present', '.nobackups',
                '--encrypt-key', self.enc_key,
@@ -205,10 +205,10 @@ def backup(opts, config):
     snap = Snapshot(opts.filesystem, opts.root, opts.create_snapshot)
     if snap.exists():
         if opts.create_snapshot:
-            print("Snapshot already exists, exiting early")
+            print("Snapshot %s already exists, exiting early", opts.root)
             return
         else:
-            print("Snapshot already exists. continuing.")
+            print("Snapshot %s already exists. continuing.", opts.root)
     with snap:
         duplicity = Duplicity(config['s3url'], DEBUG,
                               snap.rebase(opts.root, ''),
