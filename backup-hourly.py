@@ -205,10 +205,10 @@ def backup(opts, config):
     snap = Snapshot(opts.filesystem, opts.root, opts.create_snapshot)
     if snap.exists():
         if opts.create_snapshot:
-            print("Snapshot %s already exists, exiting early", opts.root)
+            print("Snapshot %s already exists, exiting early" % opts.root)
             return
         else:
-            print("Snapshot %s already exists. continuing.", opts.root)
+            print("Snapshot %s already exists. continuing." % opts.root)
     with snap:
         duplicity = Duplicity(config['s3url'], DEBUG,
                               snap.rebase(opts.root, ''),
