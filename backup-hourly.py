@@ -27,13 +27,13 @@ import logging
 import os
 import sys
 
-
 CONFIG = {'s3url': None, 'root': None, 'filesystem': None}
 CONFIG_FILE = '/etc/local/backups.conf'
 FORMAT = '%(asctime)-15s : %(levelname)-10s - %(msg)'
 DEBUG = False
 logging.basicConfig(format=FORMAT)
 LOG = logging.getLogger('root')
+ENDPOINT = 'https://storage.googleapis.com'
 
 def _exec(*args):
     '''
@@ -41,8 +41,7 @@ def _exec(*args):
     logger
     '''
     print(' '.join(args))
-    proc = subprocess.Popen(args, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT)
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     line = proc.stdout.readline()
     while line:
         print(line)
@@ -77,7 +76,8 @@ class Duplicity(object):
                '--use-agent',
                '--archive-dir', self.cachefile,
                '--encrypt-key', self.enc_key,
-               '--sign-key', self.sign_key]
+               '--sign-key', self.sign_key,
+               '--s3-endpoint-url', ENDPOINT]
         if self.dryrun:
             cmd += ['--dry-run']
         cmd += [self.url, self.path]
@@ -93,6 +93,7 @@ class Duplicity(object):
                '--exclude-if-present', '.nobackups',
                '--encrypt-key', self.enc_key,
                '--sign-key', self.sign_key,
+               '--s3-endpoint-url', ENDPOINT,
                '--allow-source-mismatch']
         if self.dryrun:
             cmd += ['--dry-run']
@@ -104,12 +105,14 @@ class Duplicity(object):
         cmd = [self.binary,
                '--archive-dir', self.cachefile,
                'remove-all-but-n-full', str(4),
+               '--s3-endpoint-url', ENDPOINT,
                '--force']
         cmd += [self.url]
         _exec(*cmd)
         cmd = [self.binary,
                '--archive-dir', self.cachefile,
                'remove-all-inc-of-but-n-full', str(2),
+               '--s3-endpoint-url', ENDPOINT,
                '--force']
         cmd += [self.url]
         _exec(*cmd)
@@ -120,6 +123,7 @@ class Duplicity(object):
                '--archive-dir', self.cachefile,
                '--encrypt-key', self.enc_key,
                '--sign-key', self.sign_key,
+               '--s3-endpoint-url', ENDPOINT,
                '--force', '--extra-clean']
         cmd += [self.url]
         _exec(*cmd)
@@ -141,7 +145,6 @@ class Snapshot(object):
     def exists(self):
         ''' Returns true if the snapshot path exists '''
         return os.path.exists(os.path.join(self.root, '.zfs', 'snapshot', 'duplicity'))
-        # return os.path.exists(self.root)
 
     def __enter__(self):
         ''' Takes a temporary ZFS snapshot, s I don't have to worry about it.'''
@@ -247,6 +250,8 @@ def main():
 
     exec(open(CONFIG_FILE).read(), config)
     args = parse_arguments(config)
+    os.environ['AWS_ACCESS_KEY_ID'] = config['access_key']
+    os.environ['AWS_SECRET_ACCESS_KEY'] = config['secret_access_key']
     if args.command == 'recover':
         recover(args, config)
     elif args.command == 'cleanup':
