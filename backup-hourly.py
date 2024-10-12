@@ -156,7 +156,8 @@ class Snapshot(object):
         '''
         Removes the ZFS snapshot, so that I don't have to worry about it later.
         '''
-        _exec('zfs', 'destroy', self.name)
+        if self.create_snapshot:
+            _exec('zfs', 'destroy', self.name)
 
     def rebase(self, root, path):
         ''' Rewrite the path from the zfs root to the zfs snapshot '''
