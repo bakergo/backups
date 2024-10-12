@@ -52,7 +52,7 @@ def _exec(*args):
 def timestamp():
     ''' Returns the timestamp in seconds '''
     # you can write java in any language.
-    return int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1))
+    return int((datetime.datetime.now(datetime.UTC) - datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC))
                .total_seconds())
 
 class Duplicity(object):
