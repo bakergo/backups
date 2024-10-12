@@ -44,7 +44,7 @@ def _exec(*args):
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     line = proc.stdout.readline()
     while line:
-        print(line)
+        print('  ' + line.decode('utf8').strip())
         line = proc.stdout.readline()
     if proc.wait() != 0:
         raise IOError("Process crashed. Might want to take a look at that.")
