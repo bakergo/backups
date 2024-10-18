@@ -209,8 +209,7 @@ def backup(opts, config):
     snap = Snapshot(opts.filesystem, opts.root, opts.create_snapshot)
     if snap.exists():
         if opts.create_snapshot:
-            print("Snapshot %s already exists, exiting early" % opts.root)
-            return
+            print("Warning: snapshot %s directory already exists." % opts.root)
         else:
             print("Snapshot %s already exists. continuing." % opts.root)
     with snap:
