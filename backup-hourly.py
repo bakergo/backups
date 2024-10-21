@@ -85,7 +85,7 @@ class Duplicity(object):
 
     def backup(self):
         '''Calls duplicity backup'''
-        cmd = [self.binary,
+        cmd = [self.binary, 'backup',
                '--use-agent',
                '--archive-dir', self.cachefile,
                '--full-if-older-than', time_format(weeks=14),
@@ -124,7 +124,7 @@ class Duplicity(object):
                '--encrypt-key', self.enc_key,
                '--sign-key', self.sign_key,
                '--s3-endpoint-url', ENDPOINT,
-               '--force', '--extra-clean']
+               '--force']
         cmd += [self.url]
         _exec(*cmd)
 
