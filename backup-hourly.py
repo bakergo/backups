@@ -30,7 +30,6 @@ import sys
 CONFIG = {'s3url': None, 'root': None, 'filesystem': None}
 CONFIG_FILE = '/etc/local/backups.conf'
 FORMAT = '%(asctime)-15s : %(levelname)-10s - %(msg)'
-DEBUG = False
 logging.basicConfig(format=FORMAT)
 LOG = logging.getLogger('root')
 ENDPOINT = 'https://storage.googleapis.com'
@@ -187,7 +186,7 @@ def parse_arguments(config):
     parser.add_argument('--s3url', type=str, help="S3 URL to upload to",
                         default=config['s3url'].strip())
     parser.add_argument('-c', '--config', type=str, help="Configuration file")
-    parser.add_argument('-d', '--dryrun', type=str, help="Dry run")
+    parser.add_argument('-n', '--dry-run', action='store_true', help="Dry run")
     parser.add_argument('-e', '--encryption_key_id', type=str, help="Do stuff",
                         default=config['encrypt_key_id'].strip())
     parser.add_argument('-s', '--signing_key_id', type=str, help="Do stuff",
@@ -213,7 +212,7 @@ def backup(opts, config):
         else:
             print("Snapshot %s already exists. continuing." % opts.root)
     with snap:
-        duplicity = Duplicity(config['s3url'], DEBUG,
+        duplicity = Duplicity(config['s3url'], opts.dry_run,
                               snap.rebase(opts.root, ''),
                               opts.encryption_key_id,
                               opts.signing_key_id,
@@ -224,7 +223,7 @@ def backup(opts, config):
 
 def recover(opts, config):
     ''' Perform a recovery from the backup to the current directory '''
-    duplicity = Duplicity(config['s3url'], DEBUG,
+    duplicity = Duplicity(config['s3url'], opts.dry_run,
                           opts.path,
                           opts.encryption_key_id,
                           opts.signing_key_id,
@@ -234,7 +233,7 @@ def recover(opts, config):
 
 def cleanup(opts, config):
     ''' Performs a full cleanup of the backup signature files '''
-    duplicity = Duplicity(config['s3url'], DEBUG,
+    duplicity = Duplicity(config['s3url'], opts.dry_run,
                           opts.path,
                           opts.encryption_key_id,
                           opts.signing_key_id,
@@ -252,6 +251,7 @@ def main():
     args = parse_arguments(config)
     os.environ['AWS_ACCESS_KEY_ID'] = config['access_key']
     os.environ['AWS_SECRET_ACCESS_KEY'] = config['secret_access_key']
+
     if args.command == 'recover':
         recover(args, config)
     elif args.command == 'cleanup':
