@@ -106,6 +106,8 @@ class Duplicity(object):
                'remove-all-but-n-full', str(4),
                '--s3-endpoint-url', ENDPOINT,
                '--force']
+        if self.dryrun:
+            cmd += ['--dry-run']
         cmd += [self.url]
         _exec(*cmd)
         cmd = [self.binary,
@@ -113,6 +115,8 @@ class Duplicity(object):
                'remove-all-inc-of-but-n-full', str(2),
                '--s3-endpoint-url', ENDPOINT,
                '--force']
+        if self.dryrun:
+            cmd += ['--dry-run']
         cmd += [self.url]
         _exec(*cmd)
 
@@ -124,6 +128,8 @@ class Duplicity(object):
                '--sign-key', self.sign_key,
                '--s3-endpoint-url', ENDPOINT,
                '--force']
+        if self.dryrun:
+            cmd += ['--dry-run']
         cmd += [self.url]
         _exec(*cmd)
 
